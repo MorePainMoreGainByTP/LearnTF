@@ -159,6 +159,7 @@ def main():
         print("num_iter:%d,total_sample_count:%d" % (num_iter, total_sample_count))
         while step < num_iter:
             print("step:",step)
+            #sssss
             with tf.device("/cpu:0"):
                 image_batch, label_batch = sess.run([image_test, label_test])
                 # print("image_batch:",image_batch)
