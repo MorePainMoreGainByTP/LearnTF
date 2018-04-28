@@ -7,6 +7,7 @@ from datetime import datetime
 import time
 import math
 import model
+from tensorflow.python.framework import graph_util
 
 
 class Config(object):
@@ -15,8 +16,8 @@ class Config(object):
     data_path = "./src_data/"
 
     num_classes = 2
-    batch_size = 32
-    max_step = 6000  # 迭代训练次数
+    batch_size = 16
+    max_step = 1000  # 迭代训练次数
 
     decay = 0.95
     decay_step = 200
@@ -25,7 +26,7 @@ class Config(object):
     # 变量保存与恢复
     # steps = max_step
     # checkpoint_iter = 1000
-    param_dir = "./params/"
+    param_dir = "./params/1/"
     save_filename = "model.ckpt"
     # load_filename = "model-" + str(steps)
 
@@ -65,6 +66,7 @@ def main():
     modeler = model.Model(config)
     # 构建卷积网络，返回输出层值logits以及每层的parameter
     logits, _ = modeler.inference()
+    pre_index = modeler.pre_index(logits)
     # 定义loss
     loss = modeler.loss(logits)
     # 选择优化器，学习率减小策略
@@ -75,7 +77,7 @@ def main():
     init = tf.initialize_all_variables()
 
     saver = tf.train.Saver()  # max_to_keep:最多保存多少份ckpt，新的覆盖旧的
-    #max_to_keep=math.ceil(config.max_step / config.checkpoint_iter)
+    # max_to_keep=math.ceil(config.max_step / config.checkpoint_iter)
 
     sess_config = tf.ConfigProto()
     sess_config.gpu_options.allow_growth = True
@@ -130,7 +132,6 @@ def main():
                 sec_per_batch = float(duration)
                 format_str = ("step %d, loss=%.2f (%.1f examples/sec; %.3f sec/batch)")
                 print(format_str % (step, loss_value, examples_per_sec, sec_per_batch))
-                # print("logits_value:",logits_value)
 
             with tf.device("/cpu:0"):
                 # write summary
@@ -141,12 +142,11 @@ def main():
         with tf.device("/cpu:0"):
             # 保存parameter即checkpoint
             saver.save(sess, config.param_dir + config.save_filename)
-            # try:
-            #     print(kernelRes_train)
-            #     print(kernelRes_train.eval(session=sess))
-            #     print(kernelRes_train.get_shape())
-            # except:
-            #     pass
+            # output_graph_def = graph_util.convert_variables_to_constants(sess, sess.graph_def,
+            #                                                              output_node_names=['output'])
+            # save_file = "grah_param/mnist.pb"
+            # with tf.gfile.FastGFile(save_file, mode='wb') as f:  # ’wb’中w代表写文件，b代表将数据以二进制方式写入文件。
+            #     f.write(output_graph_def.SerializeToString())
 
         print("\n----------------开始测试----------------\n")
         # 测试
@@ -158,28 +158,35 @@ def main():
         step = 0
         print("num_iter:%d,total_sample_count:%d" % (num_iter, total_sample_count))
         while step < num_iter:
-            print("step:",step)
-            #sssss
+            print("step:", step)
             with tf.device("/cpu:0"):
                 image_batch, label_batch = sess.run([image_test, label_test])
-                # print("image_batch:",image_batch)
-                # print("label_batch:",label_batch)
+                if step % 10 == 0:
+                    print("image_batch shape:\n",image_batch.shape)
+                    print("image_batch:\n",image_batch)
+                # if step % 10 == 0:
+                #     with open("image_batch.txt","w") as f:
+                #         for k in range(16):
+                #             for i in range(227):
+                #                 for j in range(227):
+                #                     f.write(str(image_batch[k][i][j][0])+" ")
+                #             f.write("\n\n")
+
+
             with tf.device("/gpu:0"):
-                predictions ,logits_value= sess.run([top_k,logits],
-                                       feed_dict={modeler.image_holder: image_batch,
-                                                  modeler.label_holder: label_batch,
-                                                  modeler.kernelRes: kernelRes_train,
-                                                  modeler.keep_prob: 1.0})
-                print("predictions:",predictions)
-                print("logits_value:",logits_value)
+                predictions, logits_value, index = sess.run([top_k, logits, pre_index],
+                                                            feed_dict={modeler.image_holder: image_batch,
+                                                                       modeler.label_holder: label_batch,
+                                                                       modeler.kernelRes: kernelRes_train,
+                                                                       modeler.keep_prob: 1.0})
+                print("predictions:", predictions)
+                print("logits_value:", logits_value)
+                print("pre_index:", index)
             true_count += np.sum(predictions)
-            # print("predictions:", predictions)
             for i in range(config.batch_size):
                 if predictions[i]:
-                    # print("%s +1" % label_batch[i])
                     accuracy[label_batch[i]] += 1
             print("current accuracy:", accuracy)
-            # print("true_count:%s,\ttotal_sample_count:%s" % (true_count, total_sample_count))
             step += 1
         print("\n----------------结束测试----------------\n")
 
@@ -187,9 +194,7 @@ def main():
         print("true_count:%d,total_sample_count:%d" % (true_count, total_sample_count))
         precision = 1.0 * true_count / total_sample_count
         print("总体正确率 precision @ l = %.3f" % precision)
-
         # accuracy = accuracy * config.num_classes / total_sample_count
-        # accuracy = map(lambda x: x / 200, accuracy)
         first = accuracy[0] / (200 + total_sample_count - num_examples)
         accuracy = accuracy / 200
         accuracy[0] = first

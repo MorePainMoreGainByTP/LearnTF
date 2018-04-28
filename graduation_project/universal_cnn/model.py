@@ -15,11 +15,11 @@ class Model(object):
         self.decay_step = config.decay_step
         self.starter_learning_rate = config.starter_learning_rate
         #输入图片尺寸227x227，颜色通道为1，即灰度图
-        self.image_holder = tf.placeholder(tf.float32,shape=[self.batch_size,227,227,1])
-        self.label_holder = tf.placeholder(tf.int32,[self.batch_size])
-        self.keep_prob = tf.placeholder(tf.float32)
+        self.image_holder = tf.placeholder(tf.float32,shape=[self.batch_size,227,227,1],name="image_input")
+        self.label_holder = tf.placeholder(tf.int32,[self.batch_size],name="label_input")
+        self.keep_prob = tf.placeholder(tf.float32,name="keep_prob")
         #12个特殊卷积核，即Prediction Error Filters，训练时，参数被约束
-        self.kernelRes = tf.placeholder(tf.float32,[5,5,1,12])
+        self.kernelRes = tf.placeholder(tf.float32,[5,5,1,12],name="kernel_res")
         self.num_classes = config.num_classes
 
 
@@ -127,11 +127,14 @@ class Model(object):
             weights = self.variable_with_weight_loss(shape=[4096, self.num_classes], stddev=1 / 4096.0, wl=0.0)
             biases = tf.Variable(tf.constant(0.1,shape=[self.num_classes]), name="biases")
 
-        logits = tf.add(tf.matmul(drop2,weights),biases)    #不使用softmax处理就可以获得最终分类结果（直接比较inference输出的各类数值大小）
+        logits = tf.add(tf.matmul(drop2,weights),biases,name="logits")    #不使用softmax处理就可以获得最终分类结果（直接比较inference输出的各类数值大小）
         self.print_activations(logits)
         self.activation_summary(logits)
 
         return logits,parameters
+
+    def pre_index(self,logits):
+        return tf.argmax(logits,1,output_type='int32',name="output")
 
     def loss(self,logits):
         labels = tf.cast(self.label_holder,tf.int64)    #将前者类型转换为后者类型

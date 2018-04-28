@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Image</title>
+
+    <script type="text/javascript">
+        function check_box() {
+            obj = document.getElementsByName("operation");
+            check_val = [];
+            for(k in obj){
+                if(obj[k].checked){
+                    check_val.push(obj[k].value);
+                    return true
+                }
+            }
+            // alert(check_val);
+            alert("please check the box!")
+            return false
+        }
+
+        if (typeof FileReader == 'undefined') {
+            document.getElementById("xmTanDiv").InnerHTML = "<h1></h1>";
+            document.getElementById("xdaTanFileImg").setAttribute("disabled", "disabled");
+        }
+
+        function xmTanUploadImg(obj) {
+            var file = obj.files[0];
+
+            console.log(obj);
+            console.log(file);
+            console.log("file.size = " + file.size);
+
+            var reader = new FileReader();
+
+            reader.onloadstart = function (e) {
+                console.log("....");
+            }
+            reader.onprogress = function (e) {
+                console.log("....");
+            }
+            reader.onabort = function (e) {
+                console.log("....");
+            }
+            reader.onerror = function (e) {
+                console.log("....");
+            }
+            reader.onload = function (e) {
+                console.log("....");
+
+                var img = document.getElementById("xmTanImg");
+                img.src = e.target.result;
+            }
+
+            reader.readAsDataURL(file)
+        }
+    </script>
+</head>
+<body>
+<form action="" method="post" enctype="multipart/form-data" onsubmit="return check_box()">
+    <div style="border:2px dashed red;" align="center">
+        <img style="margin: 50px" id="xmTanImg" src="../static/icon/upload.png" height="200" width="200"/>
+        <p align="center">
+            <input style="margin-left: 157px;margin-bottom:20px " type="file" name="myfile" id="xdaTanFileImg"
+                   onchange="xmTanUploadImg(this)" accept="image/*"/>
+            <br>
+            choose examination operation:<br>
+            <div align="center">
+            <input style="margin-left: 45px" type="checkbox" name="operation" value="1" checked="true">Gaussion Blur<br>
+            <input style="margin-left: 32px" type="checkbox" name="operation" value="2">Surface Blur<br>
+            <input style="margin-left: 240px" type="checkbox" name="operation" value="3">AWGN(Additive White Gaussian Noise)<br>
+            <input type="checkbox" name="operation" value="4">Sharpen <br><br>
+            </div>
+            <input type="submit" value="upload"/>
+        </p>
+
+    <div id="xmTanDiv"></div>
+    </div>
+    <hr/>
+</form>
+</body>
+</html>

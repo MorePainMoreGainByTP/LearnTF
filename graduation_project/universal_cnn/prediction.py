@@ -7,11 +7,11 @@ import numpy as np
 import cv2
 
 
-def restore_kernel(config):
+def restore_kernel(config,class_index):
     with tf.Session() as sess:
         kernelRes = sess.run(tf.truncated_normal([5, 5, 1, 12], dtype=tf.float32, stddev=1e-1))
         # print("kernelRes:",kernelRes)
-        with open(config.kernel_filename[1], "r") as f:
+        with open(config.kernel_filename[class_index], "r") as f:
             for k in range(12):
                 for i in range(5):
                     for j in range(5):
@@ -35,53 +35,57 @@ def img_prepare(img_path):
     return image
 
 
-def predict(img_dir, class_index, length, config):
+def predict(img_path, class_index, config):
     modeler = model.Model(config)
     # 构建卷积网络，返回输出层值logits以及每层的parameter
     logits, _ = modeler.inference()
 
     saver = tf.train.Saver()
     with tf.Session() as sess:
-        if os.path.exists('params/checkpoint'):
-            saver.restore(sess, "params/model.ckpt")
+        if os.path.exists("params/" + class_index + "/checkpoint"):
+            saver.restore(sess, "params/" + class_index + "/model.ckpt")
             # print("parameters restore success!")
-            kernel = restore_kernel(config)
-            record = []
-            for i in range(length):
-                img_path = img_dir + class_index + "/" + str(i + 1) + ".jpg"
-                img_value = img_prepare(img_path)
-                img_value = np.array([img_value])
-                logits_value = sess.run(logits,
-                                        feed_dict={modeler.image_holder: img_value,
-                                                   modeler.kernelRes: kernel,
-                                                   modeler.keep_prob: 1.0}
-                                        )
-                prediction = tf.argmax(logits, 1)  # 返回y_conv最大值的索引
-                value = prediction.eval(feed_dict={
-                    modeler.image_holder: img_value,
-                    modeler.kernelRes: kernel,
-                    modeler.keep_prob: 1.0
-                }, session=sess)
-                # print("value:", value, "\n", "logits_value:", logits_value)
-                record.append((value,logits_value))
-            display_list(record)
+            kernel = restore_kernel(config,int(class_index))
+            img_value = img_prepare(img_path)
+            img_value = np.array([img_value])
+            logits_value = sess.run(logits,
+                                    feed_dict={modeler.image_holder: img_value,
+                                               modeler.kernelRes: kernel,
+                                               modeler.keep_prob: 1.0}
+                                    )
+            prediction = tf.argmax(logits, 1)  # 返回y_conv最大值的索引
+            value = prediction.eval(feed_dict={
+                modeler.image_holder: img_value,
+                modeler.kernelRes: kernel,
+                modeler.keep_prob: 1.0
+            }, session=sess)
+            print("value:",value)
+            print("value[0]:",value[0])
+            # print("value:", value, "\n", "logits_value:", logits_value)
+            # record.append((value, logits_value))
+            # display_list(record)
+            return value[0]
         else:
             print("parameters restore fail!")
+            return -1
+
 
 def display_list(m_list):
     for i in range(len(m_list)):
-        print("value:",m_list[i][0],"  logits:",m_list[i][1])
+        print("value:", m_list[i][0], "  logits:", m_list[i][1])
 
-def main():
+
+def main(img_dir, img_name, classes):
     config = Config()
     config.batch_size = 1
     config.num_classes = 2
 
-    img_dir = r"src_data/"
-    class_index = "0"
-    length = 10
-    predict(img_dir, class_index, length, config)
+    result = {}
+    for index in classes:
+        result[index] = predict(img_dir + img_name, index, config)
+    print(result)
+    return result
 
 
 if __name__ == "__main__":
-    main()
+    main("src_data/1/", "1.jpg", ["1"])
